@@ -1,7 +1,7 @@
 package generator
 
 import (
-	"log"
+	"os"
 
 	"github.com/hostinger/api-cli/cmd"
 	"github.com/spf13/cobra/doc"
@@ -10,6 +10,6 @@ import (
 func main() {
 	err := doc.GenMarkdownTree(cmd.RootCmd, "./docs")
 	if err != nil {
-		log.Fatal(err)
+		os.Exit(1)
 	}
 }
