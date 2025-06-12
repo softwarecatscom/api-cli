@@ -1,5 +1,18 @@
 project_name: hapi
 version: 2
+builds:
+  - main: ./main.go
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    flags:
+      - -mod=vendor
+      - -v
+    goos:
+      - windows
+      - darwin
+      - linux
+
 archives:
   - name_template: "hapi-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     format_overrides:

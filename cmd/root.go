@@ -58,6 +58,7 @@ func initConfig() {
 		viper.SetConfigName(".hapi")
 	}
 
+	viper.SetEnvPrefix("hapi")
 	viper.AutomaticEnv() // read in environment variables that match
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
