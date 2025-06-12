@@ -43,7 +43,7 @@ func init() {
 		return validFormats, cobra.ShellCompDirectiveNoFileComp
 	})
 
-	RootCmd.AddCommand(vps.VpsGroupCmd)
+	RootCmd.AddCommand(vps.GroupCmd)
 }
 
 func initConfig() {
