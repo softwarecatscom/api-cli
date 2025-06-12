@@ -9,10 +9,10 @@ builds:
       - -mod=vendor
       - -v
     ldflags:
-      - -X github.com/hostinger/api-cli/utils/version.Build={{ .ShortCommit }}
-      - -X github.com/hostinger/api-cli/utils/version.Major={{ .Major }}
-      - -X github.com/hostinger/api-cli/utils/version.Minor={{ .Minor }}
-      - -X github.com/hostinger/api-cli/utils/version.Patch={{ .Patch }}
+      - -X github.com/hostinger/api-cli/utils.Build={{ .ShortCommit }}
+      - -X github.com/hostinger/api-cli/utils.Major={{ .Major }}
+      - -X github.com/hostinger/api-cli/utils.Minor={{ .Minor }}
+      - -X github.com/hostinger/api-cli/utils.Patch={{ .Patch }}
     goos:
       - windows
       - darwin
