@@ -124,8 +124,26 @@ func displayMetaAsTable(meta map[string]interface{}) error {
 }
 
 func displayObjectAsKeyValueTable(obj map[string]interface{}) error {
-	t := table.New(os.Stdout)
-	t.SetHeaders("Property", "Value")
+	return displayAsTree(obj, "", true)
+}
+
+func displayAsTree(data interface{}, prefix string, isRoot bool) error {
+	switch v := data.(type) {
+	case map[string]interface{}:
+		return displayObjectAsTree(v, prefix, isRoot)
+	case []interface{}:
+		return displayArrayAsTree(v, prefix, isRoot)
+	default:
+		fmt.Printf("%s%s\n", prefix, formatValue(v))
+		return nil
+	}
+}
+
+func displayObjectAsTree(obj map[string]interface{}, prefix string, isRoot bool) error {
+	if len(obj) == 0 {
+		fmt.Printf("%s%s\n", prefix, tml.Sprintf("<italic>(empty object)</italic>"))
+		return nil
+	}
 
 	// Get sorted keys
 	keys := make([]string, 0, len(obj))
@@ -134,41 +152,99 @@ func displayObjectAsKeyValueTable(obj map[string]interface{}) error {
 	}
 	sort.Strings(keys)
 
-	for _, key := range keys {
+	for i, key := range keys {
+		isLast := i == len(keys)-1
 		value := obj[key]
 
-		// Handle nested structures specially
-		switch v := value.(type) {
-		case []interface{}:
-			if len(v) == 0 {
-				t.AddRow(key, tml.Sprintf("<italic>(empty array)</italic>"))
-			} else if isArrayOfObjects(v) {
-				// For arrays of objects, show a summary
-				t.AddRow(key, fmt.Sprintf("Array[%d objects]", len(v)))
+		// Determine tree characters
+		var keyPrefix, childPrefix string
+		if isRoot {
+			keyPrefix = ""
+			childPrefix = ""
+		} else {
+			if isLast {
+				keyPrefix = prefix + "└── "
+				childPrefix = prefix + "    "
 			} else {
-				// For arrays of simple values, show them inline if short
-				if len(v) <= 3 {
-					values := make([]string, len(v))
-					for i, item := range v {
-						values[i] = formatValue(item)
-					}
-					t.AddRow(key, fmt.Sprintf("[%s]", strings.Join(values, ", ")))
-				} else {
-					t.AddRow(key, fmt.Sprintf("Array[%d items]", len(v)))
-				}
+				keyPrefix = prefix + "├── "
+				childPrefix = prefix + "│   "
 			}
+		}
+
+		// Display the key
+		if isRoot {
+			fmt.Printf("%s:\n", tml.Sprintf("<bold>%s</bold>", key))
+		} else {
+			fmt.Printf("%s%s: ", keyPrefix, tml.Sprintf("<bold>%s</bold>", key))
+		}
+
+		// Handle the value
+		switch val := value.(type) {
 		case map[string]interface{}:
-			if len(v) == 0 {
-				t.AddRow(key, tml.Sprintf("<italic>(empty object)</italic>"))
-			} else {
-				t.AddRow(key, fmt.Sprintf("Object[%d properties]", len(v)))
+			if !isRoot {
+				fmt.Print("\n")
+			}
+			if err := displayAsTree(val, childPrefix, false); err != nil {
+				return err
+			}
+		case []interface{}:
+			if !isRoot {
+				fmt.Print("\n")
+			}
+			if err := displayAsTree(val, childPrefix, false); err != nil {
+				return err
 			}
 		default:
-			t.AddRow(key, formatValue(value))
+			if isRoot {
+				fmt.Printf("  %s\n", formatValue(val))
+			} else {
+				fmt.Printf("%s\n", formatValue(val))
+			}
 		}
 	}
 
-	t.Render()
+	return nil
+}
+
+func displayArrayAsTree(arr []interface{}, prefix string, isRoot bool) error {
+	if len(arr) == 0 {
+		fmt.Printf("%s%s\n", prefix, tml.Sprintf("<italic>(empty array)</italic>"))
+		return nil
+	}
+
+	for i, item := range arr {
+		isLast := i == len(arr)-1
+
+		// Determine tree characters
+		var itemPrefix, childPrefix string
+		if isLast {
+			itemPrefix = prefix + "└── "
+			childPrefix = prefix + "    "
+		} else {
+			itemPrefix = prefix + "├── "
+			childPrefix = prefix + "│   "
+		}
+
+		// Display array index
+		fmt.Printf("%s[%d]: ", itemPrefix, i)
+
+		// Handle the item
+		switch val := item.(type) {
+		case map[string]interface{}:
+			fmt.Print("\n")
+			if err := displayAsTree(val, childPrefix, false); err != nil {
+				return err
+			}
+		case []interface{}:
+			fmt.Print("\n")
+			if err := displayAsTree(val, childPrefix, false); err != nil {
+				return err
+			}
+		default:
+			fmt.Printf("%s\n", formatValue(val))
+		}
+	}
+
 	return nil
 }
 
@@ -280,16 +356,129 @@ func formatCellValue(value interface{}) string {
 		return tml.Sprintf("<cyan>%s</cyan>", strconv.Itoa(v))
 	case int64:
 		return tml.Sprintf("<cyan>%s</cyan>", strconv.FormatInt(v, 10))
-	case []interface{}:
-		if len(v) == 0 {
-			return "[]"
-		}
-		return fmt.Sprintf("[%d items]", len(v))
+	case []interface{}, map[string]interface{}:
+		// For nested structures in table cells, format as tree string
+		return formatNestedAsTreeString(v, "")
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+// formatNestedAsTreeString formats nested structures as a compact tree string for table cells
+func formatNestedAsTreeString(data interface{}, prefix string) string {
+	var result strings.Builder
+
+	switch v := data.(type) {
 	case map[string]interface{}:
 		if len(v) == 0 {
 			return "{}"
 		}
-		return fmt.Sprintf("{%d props}", len(v))
+
+		// Get sorted keys
+		keys := make([]string, 0, len(v))
+		for key := range v {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
+		for i, key := range keys {
+			isLast := i == len(keys)-1
+			var keyPrefix, childPrefix string
+
+			if isLast {
+				keyPrefix = prefix + "└── "
+				childPrefix = prefix + "    "
+			} else {
+				keyPrefix = prefix + "├── "
+				childPrefix = prefix + "│   "
+			}
+
+			if i > 0 {
+				result.WriteString("\n")
+			}
+
+			value := v[key]
+			switch val := value.(type) {
+			case map[string]interface{}, []interface{}:
+				result.WriteString(fmt.Sprintf("%s%s:", keyPrefix, key))
+				result.WriteString("\n")
+				result.WriteString(formatNestedAsTreeString(val, childPrefix))
+			default:
+				// Format the whole node (key + value)
+				nodeText := fmt.Sprintf("%s%s: %s", keyPrefix, key, formatValuePlain(val))
+				result.WriteString(truncateNodeIfNeeded(nodeText, keyPrefix, key, formatValuePlain(val)))
+			}
+		}
+
+	case []interface{}:
+		if len(v) == 0 {
+			return "[]"
+		}
+
+		for i, item := range v {
+			isLast := i == len(v)-1
+			var itemPrefix, childPrefix string
+
+			if isLast {
+				itemPrefix = prefix + "└── "
+				childPrefix = prefix + "    "
+			} else {
+				itemPrefix = prefix + "├── "
+				childPrefix = prefix + "│   "
+			}
+
+			if i > 0 {
+				result.WriteString("\n")
+			}
+
+			switch val := item.(type) {
+			case map[string]interface{}, []interface{}:
+				result.WriteString(fmt.Sprintf("%s[%d]:", itemPrefix, i))
+				result.WriteString("\n")
+				result.WriteString(formatNestedAsTreeString(val, childPrefix))
+			default:
+				// Format the whole node (index + value)
+				nodeText := fmt.Sprintf("%s[%d]: %s", itemPrefix, i, formatValuePlain(val))
+				result.WriteString(truncateNodeIfNeeded(nodeText, itemPrefix, fmt.Sprintf("[%d]", i), formatValuePlain(val)))
+			}
+		}
+	}
+
+	return result.String()
+}
+
+// truncateNodeIfNeeded truncates the whole node if it's longer than 32 chars and the value contains spaces
+func truncateNodeIfNeeded(fullNode, prefix, label, value string) string {
+	// Check if the value (not the whole node) contains spaces
+	if len(fullNode) > 32 && strings.Contains(value, " ") {
+		return fullNode[:32] + "..."
+	}
+	return fullNode
+}
+
+// formatValuePlain formats values without color codes for tree strings
+func formatValuePlain(value interface{}) string {
+	if value == nil {
+		return "null"
+	}
+
+	switch v := value.(type) {
+	case string:
+		if v == "" {
+			return "(empty)"
+		}
+		return v
+	case bool:
+		return strconv.FormatBool(v)
+	case float64:
+		if v == float64(int64(v)) {
+			return strconv.FormatInt(int64(v), 10)
+		}
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	case int:
+		return strconv.Itoa(v)
+	case int64:
+		return strconv.FormatInt(v, 10)
 	default:
 		return fmt.Sprintf("%v", v)
 	}
