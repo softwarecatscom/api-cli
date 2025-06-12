@@ -17,10 +17,15 @@ to quickly create a Cobra application.`,
 
 func init() {
 	GroupCmd.AddCommand(GetAttachedKeysCmd)
+	GroupCmd.AddCommand(GetCmd)
 	GroupCmd.AddCommand(ListCmd)
+	GroupCmd.AddCommand(GetMetricsCmd)
 	GroupCmd.AddCommand(StartCmd)
 	GroupCmd.AddCommand(StopCmd)
 	GroupCmd.AddCommand(SetHostnameCmd)
+	GroupCmd.AddCommand(SetNameserversCmd)
+	GroupCmd.AddCommand(SetPanelPasswordCmd)
+	GroupCmd.AddCommand(SetRootPasswordCmd)
 	GroupCmd.AddCommand(ResetHostnameCmd)
 	GroupCmd.AddCommand(RecreateCmd)
 }

@@ -13,8 +13,7 @@ import (
 var SetHostnameCmd = &cobra.Command{
 	Use:   "set-hostname <virtual machine ID>",
 	Short: "Set hostname",
-	Long: `
-This endpoint sets the hostname for a specified virtual machine. Changing hostname does not update PTR record automatically.
+	Long: `This endpoint sets the hostname for a specified virtual machine. Changing hostname does not update PTR record automatically.
 If you want your virtual machine to be reachable by a hostname, you need to point your domain A/AAAA records 
 to virtual machine IP as well.`,
 	Args: cobra.MatchAll(cobra.ExactArgs(1)),

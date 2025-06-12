@@ -1,8 +1,8 @@
 package utils
 
 import (
-	"fmt"
 	"strconv"
+	"time"
 )
 
 func StringPtrOrNil(s string) *string {
@@ -34,11 +34,19 @@ func StringArrayToIntArray(strArr []string) []int {
 	for _, str := range strArr {
 		num, err := strconv.Atoi(str)
 		if err != nil {
-			fmt.Printf("Error converting %s: %v\n", str, err)
-			continue
+			panic(err)
 		}
 		intArr = append(intArr, num)
 	}
 
 	return intArr
+}
+
+func StringToTime(dateStr string) time.Time {
+	t, err := time.Parse(time.RFC3339, dateStr)
+	if err != nil {
+		panic(err)
+	}
+
+	return t
 }

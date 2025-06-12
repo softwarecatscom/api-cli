@@ -3,22 +3,19 @@ package output
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pterm/pterm"
+	"os"
 	"sort"
 	"strconv"
-)
+	"strings"
 
-type NestedData struct {
-	FieldName string
-	Data      interface{}
-	IsArray   bool
-	Count     int
-}
+	"github.com/aquasecurity/table"
+	"github.com/liamg/tml"
+)
 
 func printTable(body []byte) {
 	err := displayJSONAsTables(body)
 	if err != nil {
-		pterm.Error.Printf("Error displaying JSON: %v\n", err)
+		fmt.Printf(tml.Sprintf("<red>Error displaying JSON: %v</red>\n"), err)
 		return
 	}
 }
@@ -31,85 +28,181 @@ func displayJSONAsTables(body []byte) error {
 
 	switch v := data.(type) {
 	case []interface{}:
-		// Array of objects
-		return displayArrayOfObjects(v)
+		// Array - each item in separate table row
+		return displayArrayAsTable(v)
 	case map[string]interface{}:
-		// Single object
-		return displaySingleObject(v, 1, 1)
+		// Object - handle special cases like paginated responses
+		return displayObjectAsSeparateTables(v)
 	default:
 		return fmt.Errorf("unsupported JSON structure: expected object or array of objects")
 	}
 }
 
-func displayArrayOfObjects(objects []interface{}) error {
-	// Check if any object has nested fields
-	hasNestedFields := false
-	for _, obj := range objects {
-		objMap, ok := obj.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("array item is not an object")
-		}
+func displayObjectAsSeparateTables(obj map[string]interface{}) error {
+	// Check if this is a paginated response with 'data' and 'meta' fields
+	if data, hasData := obj["data"]; hasData {
+		if meta, hasMeta := obj["meta"]; hasMeta {
+			// Display data first
+			printSectionHeader("data")
+			if dataArray, ok := data.([]interface{}); ok {
+				if err := displayArrayAsTable(dataArray); err != nil {
+					return err
+				}
+			} else {
+				if err := displayValue(data); err != nil {
+					return err
+				}
+			}
 
-		if objectHasNestedFields(objMap) {
-			hasNestedFields = true
-			break
+			// Display meta information
+			fmt.Print(tml.Sprintf("\n"))
+			printSectionHeader("meta")
+			if metaObj, ok := meta.(map[string]interface{}); ok {
+				return displayMetaAsTable(metaObj)
+			} else {
+				return displayValue(meta)
+			}
 		}
 	}
 
-	if !hasNestedFields {
-		// Display all records in a single table
-		return displayAllRecordsInSingleTable(objects)
+	// Get sorted keys for consistent ordering
+	keys := make([]string, 0, len(obj))
+	for key := range obj {
+		keys = append(keys, key)
 	}
+	sort.Strings(keys)
 
-	// Display each record separately (original behavior for nested objects)
-	for i, obj := range objects {
-		objMap, ok := obj.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("array item %d is not an object", i)
+	for i, key := range keys {
+		value := obj[key]
+
+		// Print section header
+		if i > 0 {
+			fmt.Print(tml.Sprintf("\n"))
 		}
+		printSectionHeader(key)
 
-		if err := displaySingleObject(objMap, i+1, len(objects)); err != nil {
+		if err := displayValue(value); err != nil {
 			return err
 		}
-
-		// Add spacing between records (except for the last one)
-		if i < len(objects)-1 {
-			fmt.Println()
-		}
 	}
+
 	return nil
 }
 
-func objectHasNestedFields(obj map[string]interface{}) bool {
-	for _, value := range obj {
-		if value == nil {
-			continue // Skip null values
-		}
+func displayValue(value interface{}) error {
+	switch v := value.(type) {
+	case []interface{}:
+		// Array - display as table with rows
+		return displayArrayAsTable(v)
+	case map[string]interface{}:
+		// Nested object - display as key-value table
+		return displayObjectAsKeyValueTable(v)
+	default:
+		// Simple value - display as single value
+		fmt.Print(tml.Sprintf("%s\n", formatValue(v)))
+		return nil
+	}
+}
+
+func displayMetaAsTable(meta map[string]interface{}) error {
+	t := table.New(os.Stdout)
+	t.SetHeaders("Property", "Value")
+
+	// Get sorted keys
+	keys := make([]string, 0, len(meta))
+	for key := range meta {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		t.AddRow(key, formatValue(meta[key]))
+	}
+
+	t.Render()
+	return nil
+}
+
+func displayObjectAsKeyValueTable(obj map[string]interface{}) error {
+	t := table.New(os.Stdout)
+	t.SetHeaders("Property", "Value")
+
+	// Get sorted keys
+	keys := make([]string, 0, len(obj))
+	for key := range obj {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		value := obj[key]
+
+		// Handle nested structures specially
 		switch v := value.(type) {
-		case map[string]interface{}:
-			if len(v) > 0 { // Only count non-empty objects
-				return true
-			}
 		case []interface{}:
-			if len(v) > 0 { // Only count non-empty arrays
-				return true
+			if len(v) == 0 {
+				t.AddRow(key, tml.Sprintf("<italic>(empty array)</italic>"))
+			} else if isArrayOfObjects(v) {
+				// For arrays of objects, show a summary
+				t.AddRow(key, fmt.Sprintf("Array[%d objects]", len(v)))
+			} else {
+				// For arrays of simple values, show them inline if short
+				if len(v) <= 3 {
+					values := make([]string, len(v))
+					for i, item := range v {
+						values[i] = formatValue(item)
+					}
+					t.AddRow(key, fmt.Sprintf("[%s]", strings.Join(values, ", ")))
+				} else {
+					t.AddRow(key, fmt.Sprintf("Array[%d items]", len(v)))
+				}
 			}
+		case map[string]interface{}:
+			if len(v) == 0 {
+				t.AddRow(key, tml.Sprintf("<italic>(empty object)</italic>"))
+			} else {
+				t.AddRow(key, fmt.Sprintf("Object[%d properties]", len(v)))
+			}
+		default:
+			t.AddRow(key, formatValue(value))
+		}
+	}
+
+	t.Render()
+	return nil
+}
+
+func displayArrayAsTable(arr []interface{}) error {
+	if len(arr) == 0 {
+		fmt.Print(tml.Sprintf("<italic>(empty array)</italic>\n"))
+		return nil
+	}
+
+	// Check if array contains objects or simple values
+	if isArrayOfObjects(arr) {
+		return displayObjectArrayAsTable(arr)
+	} else {
+		return displaySimpleArrayAsTable(arr)
+	}
+}
+
+func isArrayOfObjects(arr []interface{}) bool {
+	for _, item := range arr {
+		if _, ok := item.(map[string]interface{}); ok {
+			return true
 		}
 	}
 	return false
 }
 
-func displayAllRecordsInSingleTable(objects []interface{}) error {
-	if len(objects) == 0 {
-		return nil
-	}
-
+func displayObjectArrayAsTable(arr []interface{}) error {
 	// Collect all unique keys from all objects
 	allKeys := make(map[string]bool)
-	for _, obj := range objects {
-		objMap := obj.(map[string]interface{})
-		for key := range objMap {
-			allKeys[key] = true
+	for _, item := range arr {
+		if objMap, ok := item.(map[string]interface{}); ok {
+			for key := range objMap {
+				allKeys[key] = true
+			}
 		}
 	}
 
@@ -120,246 +213,125 @@ func displayAllRecordsInSingleTable(objects []interface{}) error {
 	}
 	sort.Strings(keys)
 
-	// Create table data
-	tableData := [][]string{keys} // Header row
+	// Create table
+	t := table.New(os.Stdout)
+	t.SetHeaders(keys...)
 
 	// Add each object as a row
-	for _, obj := range objects {
-		objMap := obj.(map[string]interface{})
-		row := make([]string, len(keys))
+	for _, item := range arr {
+		objMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
 
+		row := make([]string, len(keys))
 		for i, key := range keys {
 			if value, exists := objMap[key]; exists {
-				row[i] = formatValue(value)
+				row[i] = formatCellValue(value)
 			} else {
-				row[i] = ""
+				row[i] = "-"
 			}
 		}
-		tableData = append(tableData, row)
+		t.AddRow(row...)
 	}
 
-	// Render table
-	return pterm.DefaultTable.WithHasHeader().WithData(tableData).Render()
-}
-
-func displaySingleObject(obj map[string]interface{}, recordNum, totalRecords int) error {
-	if totalRecords > 1 {
-		headerText := fmt.Sprintf("Record %d of %d", recordNum, totalRecords)
-		pterm.DefaultHeader.WithBackgroundStyle(pterm.NewStyle(pterm.BgGreen)).
-			WithTextStyle(pterm.NewStyle(pterm.FgBlack)).
-			Println(headerText)
-	}
-
-	// Separate main fields from nested data
-	mainFields := make(map[string]interface{})
-	nestedData := []NestedData{}
-
-	for key, value := range obj {
-		switch v := value.(type) {
-		case map[string]interface{}:
-			// Nested object
-			nestedData = append(nestedData, NestedData{
-				FieldName: key,
-				Data:      v,
-				IsArray:   false,
-				Count:     0,
-			})
-		case []interface{}:
-			// Array
-			nestedData = append(nestedData, NestedData{
-				FieldName: key,
-				Data:      v,
-				IsArray:   true,
-				Count:     len(v),
-			})
-		default:
-			// Simple field
-			mainFields[key] = value
-		}
-	}
-
-	// Display main fields table
-	if len(mainFields) > 0 {
-		if err := displayMainFieldsTable(mainFields); err != nil {
-			return err
-		}
-	}
-
-	// Display nested data tables
-	for _, nested := range nestedData {
-		//fmt.Println() // Add spacing before nested tables
-		if err := displayNestedTable(nested); err != nil {
-			return err
-		}
-	}
-
+	t.Render()
 	return nil
 }
 
-func displayMainFieldsTable(fields map[string]interface{}) error {
-	// Get sorted keys for consistent ordering
-	keys := make([]string, 0, len(fields))
-	for key := range fields {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	// Create table data
-	tableData := [][]string{keys} // Header row
-	values := make([]string, len(keys))
-
-	for i, key := range keys {
-		values[i] = formatValue(fields[key])
-	}
-	tableData = append(tableData, values)
-
-	// Render table
-	return pterm.DefaultTable.WithHasHeader().WithData(tableData).Render()
-}
-
-func displayNestedTable(nested NestedData) error {
-	// Create smaller header
-	var headerText string
-	if nested.IsArray {
-		headerText = fmt.Sprintf("%s (%d items)", nested.FieldName, nested.Count)
-	} else {
-		headerText = nested.FieldName
-	}
-
-	pterm.DefaultSection.Print(headerText)
-
-	switch data := nested.Data.(type) {
-	case map[string]interface{}:
-		return displayNestedObject(data)
-	case []interface{}:
-		return displayNestedArray(data)
-	default:
-		return fmt.Errorf("unexpected nested data type for field %s", nested.FieldName)
-	}
-}
-
-func displayNestedObject(obj map[string]interface{}) error {
-	// Check if this object has nested structures
-	mainFields := make(map[string]interface{})
-	hasNested := false
-
-	for key, value := range obj {
-		switch value.(type) {
-		case map[string]interface{}, []interface{}:
-			hasNested = true
-		default:
-			mainFields[key] = value
-		}
-	}
-
-	if hasNested {
-		// Treat as a full object with potential nesting
-		return displaySingleObjectContent(obj)
-	} else {
-		// Simple object, display as key-value table
-		return displayMainFieldsTable(obj)
-	}
-}
-
-func displayNestedArray(arr []interface{}) error {
-	for i, item := range arr {
-		if i > 0 {
-			fmt.Println() // Add spacing between array items
-		}
-
-		switch v := item.(type) {
-		case map[string]interface{}:
-			if err := displaySingleObjectContent(v); err != nil {
-				return err
-			}
-		default:
-			// Simple array items
-			return displaySimpleArray(arr)
-		}
-	}
-	return nil
-}
-
-func displaySimpleArray(arr []interface{}) error {
-	// For arrays of simple values, display as a single column table
-	tableData := [][]string{{"Value"}} // Header
+func displaySimpleArrayAsTable(arr []interface{}) error {
+	// Simple array - display as single column table
+	t := table.New(os.Stdout)
+	t.SetHeaders("Value")
 
 	for _, item := range arr {
-		tableData = append(tableData, []string{formatValue(item)})
+		t.AddRow(formatValue(item))
 	}
 
-	return pterm.DefaultTable.WithHasHeader().WithData(tableData).Render()
-}
-
-func displaySingleObjectContent(obj map[string]interface{}) error {
-	// Similar to displaySingleObject but without the main record header
-	mainFields := make(map[string]interface{})
-	nestedData := []NestedData{}
-
-	for key, value := range obj {
-		switch v := value.(type) {
-		case map[string]interface{}:
-			nestedData = append(nestedData, NestedData{
-				FieldName: key,
-				Data:      v,
-				IsArray:   false,
-				Count:     0,
-			})
-		case []interface{}:
-			nestedData = append(nestedData, NestedData{
-				FieldName: key,
-				Data:      v,
-				IsArray:   true,
-				Count:     len(v),
-			})
-		default:
-			mainFields[key] = value
-		}
-	}
-
-	// Display main fields
-	if len(mainFields) > 0 {
-		if err := displayMainFieldsTable(mainFields); err != nil {
-			return err
-		}
-	}
-
-	// Display nested data
-	for _, nested := range nestedData {
-		//fmt.Println()
-		if err := displayNestedTable(nested); err != nil {
-			return err
-		}
-	}
-
+	t.Render()
 	return nil
 }
 
-func formatValue(value interface{}) string {
+func printSectionHeader(text string) {
+	fmt.Print(tml.Sprintf("<bold><blue>=== %s ===</blue></bold>\n", strings.ToUpper(text)))
+}
+
+// formatCellValue formats values for table cells (more compact)
+func formatCellValue(value interface{}) string {
 	if value == nil {
-		return "null"
+		return tml.Sprintf("<italic>null</italic>")
 	}
 
 	switch v := value.(type) {
 	case string:
+		if v == "" {
+			return tml.Sprintf("<italic>(empty)</italic>")
+		}
 		return v
 	case bool:
-		return strconv.FormatBool(v)
+		return tml.Sprintf("<magenta>%s</magenta>", strconv.FormatBool(v))
 	case float64:
 		// Check if it's actually an integer
 		if v == float64(int64(v)) {
-			return strconv.FormatInt(int64(v), 10)
+			return tml.Sprintf("<cyan>%s</cyan>", strconv.FormatInt(int64(v), 10))
 		}
-		return strconv.FormatFloat(v, 'f', -1, 64)
+		return tml.Sprintf("<cyan>%s</cyan>", strconv.FormatFloat(v, 'f', -1, 64))
 	case int:
-		return strconv.Itoa(v)
+		return tml.Sprintf("<cyan>%s</cyan>", strconv.Itoa(v))
 	case int64:
-		return strconv.FormatInt(v, 10)
-	default:
-		// For complex types, use JSON representation
-		if jsonBytes, err := json.Marshal(v); err == nil {
-			return string(jsonBytes)
+		return tml.Sprintf("<cyan>%s</cyan>", strconv.FormatInt(v, 10))
+	case []interface{}:
+		if len(v) == 0 {
+			return "[]"
 		}
+		return fmt.Sprintf("[%d items]", len(v))
+	case map[string]interface{}:
+		if len(v) == 0 {
+			return "{}"
+		}
+		return fmt.Sprintf("{%d props}", len(v))
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+// formatValue formats values for detailed display
+func formatValue(value interface{}) string {
+	if value == nil {
+		return tml.Sprintf("<italic>null</italic>")
+	}
+
+	switch v := value.(type) {
+	case string:
+		if v == "" {
+			return tml.Sprintf("<italic>(empty)</italic>")
+		}
+		return v
+	case bool:
+		return tml.Sprintf("<magenta>%s</magenta>", strconv.FormatBool(v))
+	case float64:
+		// Check if it's actually an integer
+		if v == float64(int64(v)) {
+			return tml.Sprintf("<cyan>%s</cyan>", strconv.FormatInt(int64(v), 10))
+		}
+		return tml.Sprintf("<cyan>%s</cyan>", strconv.FormatFloat(v, 'f', -1, 64))
+	case int:
+		return tml.Sprintf("<cyan>%s</cyan>", strconv.Itoa(v))
+	case int64:
+		return tml.Sprintf("<cyan>%s</cyan>", strconv.FormatInt(v, 10))
+	case []interface{}:
+		if len(v) == 0 {
+			return "[]"
+		}
+		// For arrays, show a summary
+		return fmt.Sprintf("Array with %d items", len(v))
+	case map[string]interface{}:
+		if len(v) == 0 {
+			return "{}"
+		}
+		// For objects, show a summary
+		return fmt.Sprintf("Object with %d properties", len(v))
+	default:
 		return fmt.Sprintf("%v", v)
 	}
 }

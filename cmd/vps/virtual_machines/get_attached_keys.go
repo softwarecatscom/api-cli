@@ -11,7 +11,7 @@ import (
 )
 
 var GetAttachedKeysCmd = &cobra.Command{
-	Use:   "get-attached-keys",
+	Use:   "get-attached-keys <virtual machine ID>",
 	Short: "Get attached public keys",
 	Long:  `This endpoint retrieves a list of public keys attached to a specified virtual machine.`,
 	Args:  cobra.MatchAll(cobra.ExactArgs(1)),

@@ -13,9 +13,11 @@ import (
 var RecreateCmd = &cobra.Command{
 	Use:   "recreate <virtual machine ID>",
 	Short: "Recreate virtual machine",
-	Args:  cobra.MatchAll(cobra.ExactArgs(1)),
+	Long: `This endpoint will recreate a virtual machine from scratch. The recreation process involves reinstalling the 
+operating system and resetting the virtual machine to its initial state. Snapshots, if there are any, will be deleted.`,
+	Args: cobra.MatchAll(cobra.ExactArgs(1)),
 	Run: func(cmd *cobra.Command, args []string) {
-		r, err := api.Request().VPSRecreateVirtualMachineV1WithResponse(context.TODO(), utils.StringToInt(args[0]), createRequestFromFlags(cmd))
+		r, err := api.Request().VPSRecreateVirtualMachineV1WithResponse(context.TODO(), utils.StringToInt(args[0]), recreateRequestFromFlags(cmd))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -32,7 +34,7 @@ func init() {
 	RecreateCmd.MarkFlagRequired("template_id")
 }
 
-func createRequestFromFlags(cmd *cobra.Command) client.VPSV1VirtualMachineRecreateRequest {
+func recreateRequestFromFlags(cmd *cobra.Command) client.VPSV1VirtualMachineRecreateRequest {
 	templateId, _ := cmd.Flags().GetInt("template_id")
 	password, _ := cmd.Flags().GetString("password")
 	postInstallScriptId, _ := cmd.Flags().GetInt("post_install_script_id")
