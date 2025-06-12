@@ -19,12 +19,6 @@ tar xf ~/hapi-<version>-linux-<arch>.tar.gz
 mv hapi /usr/local/bin
 ```
 
-### macOS
-WIP
-
-### Windows
-WIP
-
 # Configuration
 
 ## File
@@ -49,7 +43,7 @@ hapi vps vm list
 
 # Usage
 
-See the [full reference documentation](blob/main/docs/hapi.md) for information about each available command.
+See the [full reference documentation](https://github.com/hostinger/api-cli/blob/main/docs/hapi.md) for information about each available command.
 
 # Enabling shell auto-completion (optional)
 
@@ -65,4 +59,4 @@ Auto-completion can be generated for multiple shells. The currently supported sh
 
 After adding shell auto-completion, remember to refresh your shell profile by logging out from the shell and log back in.
 
-Read more on [how to enable auto-completion](blob/main/AUTOCOMPLETE.md).
+Read more on [how to enable auto-completion](https://github.com/hostinger/api-cli/blob/main/AUTOCOMPLETE.md).
