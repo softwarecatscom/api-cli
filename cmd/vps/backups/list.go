@@ -26,7 +26,7 @@ var ListCmd = &cobra.Command{
 }
 
 func init() {
-	ListCmd.Flags().IntP("page", "", -1, "Page number")
+	ListCmd.Flags().IntP("page", "", 1, "Page number")
 }
 
 func backupListRequestParameters(cmd *cobra.Command) *client.VPSGetBackupListV1Params {

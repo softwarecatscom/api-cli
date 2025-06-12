@@ -26,7 +26,7 @@ var GetAttachedKeysCmd = &cobra.Command{
 }
 
 func init() {
-	ListCmd.Flags().IntP("page", "", -1, "Page number")
+	ListCmd.Flags().IntP("page", "", 1, "Page number")
 }
 
 func attachedKeysRequestParameters(cmd *cobra.Command) *client.VPSGetAttachedPublicKeysV1Params {

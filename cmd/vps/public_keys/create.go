@@ -14,7 +14,7 @@ var CreateCmd = &cobra.Command{
 	Short: "Create new public key",
 	Long:  `This endpoint allows you to add a new public key to your account, which can then be attached to virtual machine instances for secure access.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		r, err := api.Request().VPSCreateNewPublicKeyV1WithResponse(context.TODO(), publickKeyCreateRequest(cmd, args))
+		r, err := api.Request().VPSCreateNewPublicKeyV1WithResponse(context.TODO(), publicKeyCreateRequest(cmd, args))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -31,7 +31,7 @@ func init() {
 	CreateCmd.MarkFlagRequired("key")
 }
 
-func publickKeyCreateRequest(cmd *cobra.Command, args []string) client.VPSCreateNewPublicKeyV1JSONRequestBody {
+func publicKeyCreateRequest(cmd *cobra.Command, args []string) client.VPSCreateNewPublicKeyV1JSONRequestBody {
 	name, _ := cmd.Flags().GetString("name")
 	key, _ := cmd.Flags().GetString("key")
 

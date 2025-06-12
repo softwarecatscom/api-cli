@@ -28,7 +28,7 @@ action, such as the action name, timestamp, and status.`,
 }
 
 func init() {
-	ListCmd.Flags().IntP("page", "", -1, "Page number")
+	ListCmd.Flags().IntP("page", "", 1, "Page number")
 }
 
 func listRequestParameters(cmd *cobra.Command) *client.VPSGetActionListV1Params {

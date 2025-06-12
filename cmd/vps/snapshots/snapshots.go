@@ -10,7 +10,7 @@ allowing you to quickly recover or test changes without affecting current operat
 }
 
 func init() {
-	GroupCmd.AddCommand(ItemCmd)
+	GroupCmd.AddCommand(GetCmd)
 	GroupCmd.AddCommand(CreateCmd)
 	GroupCmd.AddCommand(DeleteCmd)
 	GroupCmd.AddCommand(RestoreCmd)

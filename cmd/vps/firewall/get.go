@@ -1,4 +1,4 @@
-package snapshots
+package firewall
 
 import (
 	"context"
@@ -9,13 +9,13 @@ import (
 	"log"
 )
 
-var ItemCmd = &cobra.Command{
-	Use:   "get <virtual machine ID>",
-	Short: "Get snapshot",
-	Long:  `This endpoint retrieves a snapshot for a specified virtual machine.`,
+var GetCmd = &cobra.Command{
+	Use:   "get <firewall ID>",
+	Short: "Get firewall",
+	Long:  `This endpoint retrieves firewall by its ID and rules associated with it.`,
 	Args:  cobra.MatchAll(cobra.ExactArgs(1)),
 	Run: func(cmd *cobra.Command, args []string) {
-		r, err := api.Request().VPSGetSnapshotV1WithResponse(context.TODO(), utils.StringToInt(args[0]))
+		r, err := api.Request().VPSGetFirewallV1WithResponse(context.TODO(), utils.StringToInt(args[0]))
 		if err != nil {
 			log.Fatal(err)
 		}

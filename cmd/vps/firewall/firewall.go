@@ -15,7 +15,7 @@ This firewall applies rules at the network level, so it will take precedence ove
 func init() {
 	GroupCmd.AddCommand(ActivateCmd)
 	GroupCmd.AddCommand(DeactivateCmd)
-	GroupCmd.AddCommand(ItemCmd)
+	GroupCmd.AddCommand(GetCmd)
 	GroupCmd.AddCommand(DeleteCmd)
 	GroupCmd.AddCommand(ListCmd)
 	GroupCmd.AddCommand(CreateCmd)

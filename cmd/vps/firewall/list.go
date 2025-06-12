@@ -25,7 +25,7 @@ var ListCmd = &cobra.Command{
 }
 
 func init() {
-	ListCmd.Flags().IntP("page", "", -1, "Page number")
+	ListCmd.Flags().IntP("page", "", 1, "Page number")
 }
 
 func firewallListRequestParameters(cmd *cobra.Command) *client.VPSGetFirewallListV1Params {
