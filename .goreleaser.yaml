@@ -9,10 +9,10 @@ builds:
       - -mod=vendor
       - -v
     ldflags:
-      - -X github.com/hostinger/api-cli/utils.Build={{ .ShortCommit }}
-      - -X github.com/hostinger/api-cli/utils.Major={{ .Major }}
-      - -X github.com/hostinger/api-cli/utils.Minor={{ .Minor }}
-      - -X github.com/hostinger/api-cli/utils.Patch={{ .Patch }}
+      - -X github.com/softwarecatscom/api-cli/utils.Build={{ .ShortCommit }}
+      - -X github.com/softwarecatscom/api-cli/utils.Major={{ .Major }}
+      - -X github.com/softwarecatscom/api-cli/utils.Minor={{ .Minor }}
+      - -X github.com/softwarecatscom/api-cli/utils.Patch={{ .Patch }}
     goos:
       - windows
       - darwin
@@ -43,7 +43,7 @@ checksum:
 
 release:
   github:
-    owner: hostinger
+    owner: softwarecatscom
     name: api-cli
 
 changelog:
