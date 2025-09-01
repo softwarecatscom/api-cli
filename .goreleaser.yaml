@@ -17,6 +17,10 @@ builds:
       - windows
       - darwin
       - linux
+    ignore:
+      - goos: windows
+        goarch: arm64
+
 
 archives:
   - name_template: "hapi-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
