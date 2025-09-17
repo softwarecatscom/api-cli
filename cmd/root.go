@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/hostinger/api-cli/cmd/vps"
+	"github.com/spf13/cast"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -61,7 +62,14 @@ func initConfig() {
 
 	viper.SetEnvPrefix("hapi")
 	viper.AutomaticEnv() // read in environment variables that match
+	_verbose := viper.GetString("verbose")
+	verbose := 0
+	if _verbose != "" {
+		verbose = cast.ToInt(_verbose)
+	}
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		if verbose > 0 {
+			fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		}
 	}
 }
